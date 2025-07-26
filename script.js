@@ -172,8 +172,8 @@ class GeminiTTSApp {
         // Add user message
         this.addMessage(text, 'user');
         
-        // Generate audio
-        await this.generateAudio(text);
+        // Generate AI response text first, then audio
+        await this.generateResponse(text);
     }
 
     addMessage(text, sender, audioUrl = null) {
@@ -190,10 +190,10 @@ class GeminiTTSApp {
                 </div>
                 <div class="message-footer">
                     <span class="message-time">${this.formatTime(new Date())}</span>
-                    ${sender === 'ai' && audioUrl ? `
-                        <button class="message-audio-btn" onclick="app.playAudio('${audioUrl}', ${messageId})">
+                    ${sender === 'ai' ? `
+                        <button class="message-audio-btn" onclick="app.generateAndPlayAudio('${text.replace(/'/g, "\\'")}', ${messageId})">
                             ${this.getPlayIcon()}
-                            Ouvir
+                            Gerar Áudio
                         </button>
                     ` : ''}
                 </div>
@@ -210,15 +210,86 @@ class GeminiTTSApp {
         return messageId;
     }
 
-    async generateAudio(text) {
+    // ✅ FUNÇÃO 1: Gerar resposta de texto (usa gemini-2.5-flash)
+    async generateResponse(userText) {
         this.isGenerating = true;
         this.sendBtn.disabled = true;
-        this.showStatus('Gerando áudio... ⏳', 'loading');
+        this.showStatus('Gerando resposta... 🤖', 'loading');
 
         try {
-            // Add AI message placeholder
-            const messageId = this.addMessage('Gerando resposta de áudio...', 'ai');
+            const response = await fetch('https://api.genai.gd.edu.kg/google/v1beta/models/gemini-2.5-flash:generateContent', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-goog-api-key': this.apiKey
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        role: "user",
+                        parts: [{ text: userText }]
+                    }]
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+            }
+
+            const jsonResponse = await response.json();
             
+            if (!jsonResponse.candidates || jsonResponse.candidates.length === 0) {
+                throw new Error('API retornou resposta sem candidates');
+            }
+
+            const candidate = jsonResponse.candidates[0];
+            if (!candidate.content || !candidate.content.parts) {
+                throw new Error('API retornou candidate sem conteúdo');
+            }
+
+            const aiText = candidate.content.parts[0].text;
+            if (aiText) {
+                // Add AI message
+                this.addMessage(aiText, 'ai');
+                this.showStatus('✅ Resposta gerada! Clique em "Gerar Áudio" para ouvir.', 'success');
+            } else {
+                throw new Error('Resposta da IA vazia');
+            }
+
+        } catch (error) {
+            console.error('Erro ao gerar resposta:', error);
+            let errorMsg = 'Erro desconhecido';
+            
+            if (error.message.includes('API key not valid')) {
+                errorMsg = 'Chave da API inválida';
+            } else if (error.message.includes('403')) {
+                errorMsg = 'Acesso negado - verifique sua chave API';
+            } else if (error.message.includes('429')) {
+                errorMsg = 'Muitas requisições - tente novamente em alguns segundos';
+            } else {
+                errorMsg = error.message;
+            }
+            
+            this.showStatus('❌ Erro ao gerar resposta: ' + errorMsg, 'error');
+            this.addMessage('Desculpe, ocorreu um erro ao gerar a resposta: ' + errorMsg, 'ai');
+        } finally {
+            this.isGenerating = false;
+            this.sendBtn.disabled = false;
+            setTimeout(() => this.hideStatus(), 5000);
+        }
+    }
+
+    // ✅ FUNÇÃO 2: Converter texto em áudio (usa gemini-2.5-flash-preview-tts)
+    async generateAndPlayAudio(text, messageId) {
+        const buttonEl = document.querySelector(`[onclick="app.generateAndPlayAudio('${text.replace(/'/g, "\\'")}', ${messageId})"]`);
+        if (buttonEl) {
+            buttonEl.disabled = true;
+            buttonEl.innerHTML = `${this.getSpinnerIcon()} Gerando...`;
+        }
+
+        this.showStatus('Convertendo texto em áudio... 🎵', 'loading');
+
+        try {
+            // ✅ CORREÇÃO: Usar o modelo correto para TTS
             const response = await fetch('https://api.genai.gd.edu.kg/google/v1beta/models/gemini-2.5-flash-preview-tts:generateContent', {
                 method: 'POST',
                 headers: {
@@ -231,7 +302,7 @@ class GeminiTTSApp {
                         parts: [{ text: text }]
                     }],
                     generationConfig: {
-                        responseModalities: ['AUDIO'],
+                        responseModalities: ['AUDIO'], // ✅ Essencial para áudio
                         speechConfig: {
                             voiceConfig: {
                                 prebuiltVoiceConfig: {
@@ -262,12 +333,15 @@ class GeminiTTSApp {
             let accumulatedAudioDataB64 = "";
             let audioMimeType = "audio/L16";
 
+            // Processa todas as parts do content
             for (const part of candidate.content.parts) {
                 if (part && 'inlineData' in part && part.inlineData) {
                     audioFound = true;
+                    
                     if (part.inlineData.data) {
                         accumulatedAudioDataB64 += part.inlineData.data;
                     }
+                    
                     if (part.inlineData.mimeType) {
                         audioMimeType = part.inlineData.mimeType;
                     }
@@ -275,11 +349,16 @@ class GeminiTTSApp {
             }
 
             if (audioFound && accumulatedAudioDataB64) {
+                // Converte para WAV
                 const audioBlob = this.convertToWavBlob(accumulatedAudioDataB64, audioMimeType);
                 const audioUrl = URL.createObjectURL(audioBlob);
                 
-                // Update AI message with audio
-                this.updateMessageWithAudio(messageId, text, audioUrl);
+                // Update button to play/pause
+                if (buttonEl) {
+                    buttonEl.disabled = false;
+                    buttonEl.onclick = () => this.playAudio(audioUrl, messageId);
+                    buttonEl.innerHTML = `${this.getPlayIcon()} Ouvir`;
+                }
                 
                 // Add to history
                 this.addToHistory({
@@ -304,6 +383,8 @@ class GeminiTTSApp {
             
             if (error.message.includes('API key not valid')) {
                 errorMsg = 'Chave da API inválida';
+            } else if (error.message.includes('This model only supports text output')) {
+                errorMsg = 'Modelo incorreto - verifique se está usando gemini-2.5-flash-preview-tts';
             } else if (error.message.includes('403')) {
                 errorMsg = 'Acesso negado - verifique sua chave API';
             } else if (error.message.includes('429')) {
@@ -312,32 +393,15 @@ class GeminiTTSApp {
                 errorMsg = error.message;
             }
             
-            this.showStatus('❌ ' + errorMsg, 'error');
-        } finally {
-            this.isGenerating = false;
-            this.sendBtn.disabled = false;
-            setTimeout(() => this.hideStatus(), 5000);
-        }
-    }
-
-    updateMessageWithAudio(messageId, text, audioUrl) {
-        const messages = this.chatLog.querySelectorAll('.message-wrapper.is-ai');
-        const targetMessage = Array.from(messages).find(msg => 
-            msg.innerHTML.includes('Gerando resposta de áudio...')
-        );
-        
-        if (targetMessage) {
-            const bubble = targetMessage.querySelector('.message-bubble');
-            const footer = targetMessage.querySelector('.message-footer');
+            this.showStatus('❌ Erro ao gerar áudio: ' + errorMsg, 'error');
             
-            bubble.textContent = text;
-            footer.innerHTML = `
-                <span class="message-time">${this.formatTime(new Date())}</span>
-                <button class="message-audio-btn" onclick="app.playAudio('${audioUrl}', ${messageId})">
-                    ${this.getPlayIcon()}
-                    Ouvir
-                </button>
-            `;
+            // Reset button
+            if (buttonEl) {
+                buttonEl.disabled = false;
+                buttonEl.innerHTML = `${this.getPlayIcon()} Gerar Áudio`;
+            }
+        } finally {
+            setTimeout(() => this.hideStatus(), 5000);
         }
     }
 
@@ -429,11 +493,13 @@ class GeminiTTSApp {
         // Update message audio buttons
         const messageButtons = this.chatLog.querySelectorAll('.message-audio-btn');
         messageButtons.forEach(btn => {
-            const isPlaying = this.currentlyPlaying && btn.onclick.toString().includes(this.currentlyPlaying);
-            btn.innerHTML = isPlaying ? 
-                `${this.getPauseIcon()} Pausar` : 
-                `${this.getPlayIcon()} Ouvir`;
-            btn.className = `message-audio-btn ${isPlaying ? 'playing' : ''}`;
+            if (btn.onclick && btn.onclick.toString().includes('playAudio')) {
+                const isPlaying = this.currentlyPlaying && btn.onclick.toString().includes(this.currentlyPlaying);
+                btn.innerHTML = isPlaying ? 
+                    `${this.getPauseIcon()} Pausar` : 
+                    `${this.getPlayIcon()} Ouvir`;
+                btn.className = `message-audio-btn ${isPlaying ? 'playing' : ''}`;
+            }
         });
 
         // Update history buttons
@@ -546,6 +612,12 @@ class GeminiTTSApp {
         </svg>`;
     }
 
+    getSpinnerIcon() {
+        return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinner">
+            <path d="M21 12c0 5-4 9-9 9s-9-4-9-9 4-9 9-9c1.5 0 3 .4 4.2 1.1"/>
+        </svg>`;
+    }
+
     getUserIcon() {
         return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
@@ -563,7 +635,7 @@ class GeminiTTSApp {
     getDeleteIcon() {
         return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3,6 5,6 21,6"/>
-            <path d="M19,6V20a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6M8,6V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"/>
+            <path d="M19,6V20a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6M8,6V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2-2V6"/>
         </svg>`;
     }
 }
