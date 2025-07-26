@@ -85,7 +85,7 @@ class GeminiTTSApp {
         // Chat form
         this.chatForm.addEventListener('submit', (e) => this.handleSendMessage(e));
         
-        // ✅ CORREÇÃO: Enter para enviar, Shift+Enter para quebra de linha
+        // Enter para enviar, Shift+Enter para quebra de linha
         this.textInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 if (e.shiftKey) {
@@ -197,7 +197,7 @@ class GeminiTTSApp {
         const messageId = Date.now();
         const messageEl = document.createElement('div');
         messageEl.className = `message-wrapper is-${sender}`;
-        messageEl.dataset.messageId = messageId; // ✅ Adiciona ID para referência
+        messageEl.dataset.messageId = messageId;
         
         messageEl.innerHTML = `
             <div class="message-avatar">
@@ -229,14 +229,14 @@ class GeminiTTSApp {
         return messageId;
     }
 
-    // ✅ FUNÇÃO 1: Gerar resposta de texto (usa gemini-2.5-flash)
+    // Função 1: Gerar resposta de texto
     async generateResponse(userText) {
         this.isGenerating = true;
         this.sendBtn.disabled = true;
         this.showStatus('Gerando resposta... 🤖', 'loading');
 
         try {
-            const response = await fetch('https://api.genai.gd.edu.kg/google/v1beta/models/gemini-2.5-flash-lite:generateContent', {
+            const response = await fetch('https://api.genai.gd.edu.kg/google/v1beta/models/gemini-2.5-flash:generateContent', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -267,7 +267,6 @@ class GeminiTTSApp {
 
             const aiText = candidate.content.parts[0].text;
             if (aiText) {
-                // Add AI message
                 this.addMessage(aiText, 'ai');
                 this.showStatus('✅ Resposta gerada! Clique em "Gerar Áudio" para ouvir.', 'success');
             } else {
@@ -297,7 +296,7 @@ class GeminiTTSApp {
         }
     }
 
-    // ✅ FUNÇÃO 2: Converter texto em áudio (usa gemini-2.5-flash-preview-tts)
+    // Função 2: Converter texto em áudio
     async generateAndPlayAudio(text, messageId) {
         const buttonEl = document.querySelector(`[data-message-id="${messageId}"]`);
         if (buttonEl) {
@@ -370,12 +369,12 @@ class GeminiTTSApp {
                 const audioBlob = this.convertToWavBlob(accumulatedAudioDataB64, audioMimeType);
                 const audioUrl = URL.createObjectURL(audioBlob);
                 
-                // ✅ CORREÇÃO: Update button corretamente
+                // Update button
                 if (buttonEl) {
                     buttonEl.disabled = false;
                     buttonEl.onclick = () => this.playAudio(audioUrl, messageId);
                     buttonEl.innerHTML = `${this.getPlayIcon()} Ouvir`;
-                    buttonEl.dataset.audioUrl = audioUrl; // Armazena URL para referência
+                    buttonEl.dataset.audioUrl = audioUrl;
                 }
                 
                 // Add to history
@@ -402,7 +401,7 @@ class GeminiTTSApp {
             if (error.message.includes('API key not valid')) {
                 errorMsg = 'Chave da API inválida';
             } else if (error.message.includes('This model only supports text output')) {
-                errorMsg = 'ERRO: Ainda usando modelo errado! Verifique se está usando gemini-2.5-flash-preview-tts';
+                errorMsg = 'Modelo incorreto - usando gemini-2.5-flash-preview-tts';
             } else if (error.message.includes('403')) {
                 errorMsg = 'Acesso negado - verifique sua chave API';
             } else if (error.message.includes('429')) {
@@ -413,7 +412,7 @@ class GeminiTTSApp {
             
             this.showStatus('❌ Erro ao gerar áudio: ' + errorMsg, 'error');
             
-            // ✅ CORREÇÃO: Reset button corretamente
+            // Reset button
             if (buttonEl) {
                 buttonEl.disabled = false;
                 buttonEl.innerHTML = `${this.getPlayIcon()} Gerar Áudio`;
@@ -516,13 +515,11 @@ class GeminiTTSApp {
             const isPlaying = this.currentlyPlaying === messageId;
             
             if (btn.dataset.audioUrl) {
-                // Tem áudio - botão ouvir/pausar
                 btn.innerHTML = isPlaying ? 
                     `${this.getPauseIcon()} Pausar` : 
                     `${this.getPlayIcon()} Ouvir`;
                 btn.className = `message-audio-btn ${isPlaying ? 'playing' : ''}`;
             } else {
-                // Não tem áudio - botão gerar
                 btn.innerHTML = `${this.getPlayIcon()} Gerar Áudio`;
                 btn.className = 'message-audio-btn';
             }
@@ -578,13 +575,12 @@ class GeminiTTSApp {
         this.updatePlayButtons();
     }
 
-    // ✅ CORREÇÃO: Limpar item do histórico e atualizar botões
     deleteHistoryItem(id) {
         const item = this.audioHistory.find(item => item.id === id);
         if (item) {
             URL.revokeObjectURL(item.audioUrl);
             
-            // ✅ Reset botão da mensagem correspondente
+            // Reset botão da mensagem correspondente
             const messageBtn = document.querySelector(`[data-message-id="${id}"]`);
             if (messageBtn) {
                 messageBtn.innerHTML = `${this.getPlayIcon()} Gerar Áudio`;
@@ -598,7 +594,6 @@ class GeminiTTSApp {
         }
     }
 
-    // ✅ CORREÇÃO: Limpar histórico de áudios e resetar botões
     clearAudioHistory() {
         if (this.audioHistory.length === 0) return;
         
@@ -606,7 +601,7 @@ class GeminiTTSApp {
             // Revoke URLs
             this.audioHistory.forEach(item => URL.revokeObjectURL(item.audioUrl));
             
-            // ✅ Reset todos os botões de áudio
+            // Reset todos os botões de áudio
             const messageButtons = this.chatLog.querySelectorAll('.message-audio-btn');
             messageButtons.forEach(btn => {
                 if (btn.dataset.audioUrl) {
@@ -624,7 +619,7 @@ class GeminiTTSApp {
         }
     }
 
-    // ✅ NOVA FUNÇÃO: Limpar conversa completa
+    // Nova função: Limpar conversa completa
     clearConversation() {
         if (confirm('Tem certeza que deseja limpar toda a conversa?')) {
             // Para áudio atual se estiver tocando
@@ -639,6 +634,16 @@ class GeminiTTSApp {
                     <div class="welcome-content">
                         <h2>Bem-vindo ao Gemini TTS Pro! 🎵</h2>
                         <p>Digite qualquer texto abaixo e eu transformarei em áudio usando inteligência artificial.</p>
+                        <div class="welcome-tips">
+                            <div class="tip">
+                                <span class="tip-icon">⌨️</span>
+                                <span><kbd>Enter</kbd> para enviar, <kbd>Shift+Enter</kbd> para nova linha</span>
+                            </div>
+                            <div class="tip">
+                                <span class="tip-icon">🎵</span>
+                                <span>Clique em "Gerar Áudio" nas respostas para ouvir</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -716,7 +721,7 @@ class GeminiTTSApp {
     getDeleteIcon() {
         return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3,6 5,6 21,6"/>
-            <path d="M19,6V20a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6M8,6V4a2,2,0,0,1,2,2h4a2,2,0,0,1,2,2V6"/>
+            <path d="M19,6V20a2,2,0,0,1-2-2H7a2,2,0,0,1-2-2V6M8,6V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"/>
         </svg>`;
     }
 }
