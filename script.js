@@ -219,7 +219,7 @@ class GeminiTTSApp {
             // Add AI message placeholder
             const messageId = this.addMessage('Gerando resposta de áudio...', 'ai');
             
-            const response = await fetch('https://api.genai.gd.edu.kg/google/v1beta/models/gemini-2.5-flash:generateContent', {
+            const response = await fetch('https://api.genai.gd.edu.kg/google/v1beta/models/gemini-2.5-flash-preview-tts:generateContent', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
