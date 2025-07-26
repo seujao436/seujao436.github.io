@@ -191,62 +191,63 @@ class GeminiTTSApp {
         await this.generateResponse(text);
     }
 
-    // ✅ CORREÇÃO: Função addMessage segura e estável
+    // ✅ CORREÇÃO: Função addMessage segura - texto nunca some
     addMessage(text, sender) {
         const messageId = Date.now();
         const messageEl = document.createElement('div');
         messageEl.className = `message-wrapper is-${sender}`;
-        messageEl.dataset.messageId = messageId;
         
-        // ✅ Escape HTML seguro
-        const safeText = this.escapeHtml(text);
+        // ✅ SEGURO: Criar elementos separadamente
+        const messageAvatar = document.createElement('div');
+        messageAvatar.className = 'message-avatar';
+        messageAvatar.innerHTML = sender === 'user' ? this.getUserIcon() : this.getBotIcon();
         
-        messageEl.innerHTML = `
-            <div class="message-avatar">
-                ${sender === 'user' ? this.getUserIcon() : this.getBotIcon()}
-            </div>
-            <div class="message-content">
-                <div class="message-bubble is-${sender}">
-                    ${safeText}
-                </div>
-                <div class="message-footer">
-                    <span class="message-time">${this.formatTime(new Date())}</span>
-                    ${sender === 'ai' ? `
-                        <button class="message-audio-btn" id="audio-btn-${messageId}">
-                            ${this.getPlayIcon()}
-                            Gerar Áudio
-                        </button>
-                    ` : ''}
-                </div>
-            </div>
-        `;
+        const messageContent = document.createElement('div');
+        messageContent.className = 'message-content';
         
-        // Remove welcome message if exists
+        const messageBubble = document.createElement('div');
+        messageBubble.className = `message-bubble is-${sender}`;
+        messageBubble.textContent = text; // ✅ TEXTO SEGURO - NUNCA SOME!
+        
+        const messageFooter = document.createElement('div');
+        messageFooter.className = 'message-footer';
+        
+        const messageTime = document.createElement('span');
+        messageTime.className = 'message-time';
+        messageTime.textContent = this.formatTime(new Date());
+        
+        messageFooter.appendChild(messageTime);
+        
+        // ✅ BOTÃO ÁUDIO SEGURO (só para AI)
+        if (sender === 'ai') {
+            const audioBtn = document.createElement('button');
+            audioBtn.className = 'message-audio-btn';
+            audioBtn.innerHTML = `${this.getPlayIcon()} Gerar Áudio`;
+            audioBtn.dataset.textContent = text; // ✅ TEXTO PRESERVADO AQUI
+            audioBtn.dataset.messageId = messageId;
+            
+            // ✅ EVENT LISTENER ÚNICO E SEGURO
+            audioBtn.addEventListener('click', () => {
+                this.generateAndPlayAudio(text, messageId, audioBtn);
+            });
+            
+            messageFooter.appendChild(audioBtn);
+        }
+        
+        // ✅ MONTAGEM SEGURA DO DOM
+        messageContent.appendChild(messageBubble);
+        messageContent.appendChild(messageFooter);
+        messageEl.appendChild(messageAvatar);
+        messageEl.appendChild(messageContent);
+        
+        // Remove welcome message
         const welcomeMsg = this.chatLog.querySelector('.welcome-message');
         if (welcomeMsg) welcomeMsg.remove();
         
         this.chatLog.appendChild(messageEl);
         this.chatLog.scrollTop = this.chatLog.scrollHeight;
         
-        // ✅ Event listener único e seguro
-        if (sender === 'ai') {
-            const audioBtn = document.getElementById(`audio-btn-${messageId}`);
-            if (audioBtn) {
-                audioBtn.dataset.originalText = text;
-                audioBtn.addEventListener('click', () => {
-                    this.generateAndPlayAudio(text, messageId);
-                });
-            }
-        }
-        
         return messageId;
-    }
-
-    // ✅ Função escapeHtml para prevenir quebras
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     }
 
     // ✅ Função 1: Gerar resposta de texto (usa gemini-2.5-flash)
@@ -318,15 +319,12 @@ class GeminiTTSApp {
         }
     }
 
-    // ✅ Função 2: Converter texto em áudio (usa gemini-2.5-flash-preview-tts)
-    async generateAndPlayAudio(text, messageId) {
-        const buttonEl = document.getElementById(`audio-btn-${messageId}`);
+    // ✅ CORREÇÃO: Função generateAndPlayAudio que não afeta o texto
+    async generateAndPlayAudio(text, messageId, buttonElement) {
+        // ✅ NUNCA MEXE NA MENSAGEM - SÓ NO BOTÃO
+        buttonElement.disabled = true;
+        buttonElement.innerHTML = `${this.getSpinnerIcon()} Gerando...`;
         
-        if (buttonEl) {
-            buttonEl.disabled = true;
-            buttonEl.innerHTML = `${this.getSpinnerIcon()} Gerando...`;
-        }
-
         this.showStatus('Convertendo texto em áudio... 🎵', 'loading');
 
         try {
@@ -393,20 +391,18 @@ class GeminiTTSApp {
                 const audioBlob = this.convertToWavBlob(accumulatedAudioDataB64, audioMimeType);
                 const audioUrl = URL.createObjectURL(audioBlob);
                 
-                // ✅ Update button de forma segura (sem afetar a mensagem)
-                if (buttonEl) {
-                    buttonEl.disabled = false;
-                    buttonEl.innerHTML = `${this.getPlayIcon()} Ouvir`;
-                    buttonEl.dataset.audioUrl = audioUrl;
-                    
-                    // Substitui o event listener de forma segura
-                    const newButton = buttonEl.cloneNode(true);
-                    buttonEl.parentNode.replaceChild(newButton, buttonEl);
-                    
-                    newButton.addEventListener('click', () => {
-                        this.playAudio(audioUrl, messageId);
-                    });
-                }
+                // ✅ SUCESSO: Só muda o botão, NUNCA a mensagem
+                buttonElement.disabled = false;
+                buttonElement.innerHTML = `${this.getPlayIcon()} Ouvir`;
+                buttonElement.dataset.audioUrl = audioUrl;
+                
+                // ✅ Novo event listener para tocar
+                const newBtn = buttonElement.cloneNode(true);
+                buttonElement.parentNode.replaceChild(newBtn, buttonElement);
+                
+                newBtn.addEventListener('click', () => {
+                    this.playAudio(audioUrl, messageId);
+                });
                 
                 // Add to history
                 this.addToHistory({
@@ -443,13 +439,9 @@ class GeminiTTSApp {
             
             this.showStatus('❌ Erro ao gerar áudio: ' + errorMsg, 'error');
             
-            // Reset button
-            if (buttonEl) {
-                buttonEl.disabled = false;
-                buttonEl.innerHTML = `${this.getPlayIcon()} Gerar Áudio`;
-                const originalText = buttonEl.dataset.originalText || text;
-                buttonEl.onclick = () => this.generateAndPlayAudio(originalText, messageId);
-            }
+            // ✅ ERRO: Restaura botão, mensagem INTACTA
+            buttonElement.disabled = false;
+            buttonElement.innerHTML = `${this.getPlayIcon()} Gerar Áudio`;
         } finally {
             setTimeout(() => this.hideStatus(), 5000);
         }
@@ -544,7 +536,7 @@ class GeminiTTSApp {
         // Update message audio buttons
         const messageButtons = this.chatLog.querySelectorAll('.message-audio-btn');
         messageButtons.forEach(btn => {
-            const messageId = parseInt(btn.id.replace('audio-btn-', ''));
+            const messageId = parseInt(btn.dataset.messageId);
             const isPlaying = this.currentlyPlaying === messageId;
             
             if (btn.dataset.audioUrl) {
@@ -608,18 +600,24 @@ class GeminiTTSApp {
         this.updatePlayButtons();
     }
 
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     deleteHistoryItem(id) {
         const item = this.audioHistory.find(item => item.id === id);
         if (item) {
             URL.revokeObjectURL(item.audioUrl);
             
             // Reset botão da mensagem correspondente
-            const messageBtn = document.getElementById(`audio-btn-${id}`);
+            const messageBtn = document.querySelector(`[data-message-id="${id}"]`);
             if (messageBtn) {
                 messageBtn.innerHTML = `${this.getPlayIcon()} Gerar Áudio`;
-                const originalText = messageBtn.dataset.originalText;
+                const originalText = messageBtn.dataset.textContent;
                 if (originalText) {
-                    messageBtn.onclick = () => this.generateAndPlayAudio(originalText, id);
+                    messageBtn.onclick = () => this.generateAndPlayAudio(originalText, id, messageBtn);
                 }
                 delete messageBtn.dataset.audioUrl;
             }
@@ -643,10 +641,10 @@ class GeminiTTSApp {
             messageButtons.forEach(btn => {
                 if (btn.dataset.audioUrl) {
                     btn.innerHTML = `${this.getPlayIcon()} Gerar Áudio`;
-                    const originalText = btn.dataset.originalText;
-                    const messageId = parseInt(btn.id.replace('audio-btn-', ''));
+                    const originalText = btn.dataset.textContent;
+                    const messageId = parseInt(btn.dataset.messageId);
                     if (originalText) {
-                        btn.onclick = () => this.generateAndPlayAudio(originalText, messageId);
+                        btn.onclick = () => this.generateAndPlayAudio(originalText, messageId, btn);
                     }
                     delete btn.dataset.audioUrl;
                 }
