@@ -278,7 +278,7 @@ class GeminiTTSApp {
         }
     }
 
-    // ✅ FUNÇÃO 2: Converter texto em áudio (usa gemini-2.5-flash-preview-tts)
+    // ✅ FUNÇÃO 2: Converter texto em áudio (CORRIGIDO - USA O MODELO CERTO!)
     async generateAndPlayAudio(text, messageId) {
         const buttonEl = document.querySelector(`[onclick="app.generateAndPlayAudio('${text.replace(/'/g, "\\'")}', ${messageId})"]`);
         if (buttonEl) {
@@ -289,7 +289,7 @@ class GeminiTTSApp {
         this.showStatus('Convertendo texto em áudio... 🎵', 'loading');
 
         try {
-            // ✅ CORREÇÃO: Usar o modelo correto para TTS
+            // ✅ CORREÇÃO CRÍTICA: Modelo correto para TTS
             const response = await fetch('https://api.genai.gd.edu.kg/google/v1beta/models/gemini-2.5-flash-preview-tts:generateContent', {
                 method: 'POST',
                 headers: {
@@ -315,10 +315,13 @@ class GeminiTTSApp {
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+                const errorText = await response.text();
+                console.error('Response error:', errorText);
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
 
             const jsonResponse = await response.json();
+            console.log('TTS Response:', JSON.stringify(jsonResponse, null, 2));
             
             if (!jsonResponse.candidates || jsonResponse.candidates.length === 0) {
                 throw new Error('API retornou resposta sem candidates');
@@ -335,6 +338,7 @@ class GeminiTTSApp {
 
             // Processa todas as parts do content
             for (const part of candidate.content.parts) {
+                console.log('Processing part:', part);
                 if (part && 'inlineData' in part && part.inlineData) {
                     audioFound = true;
                     
@@ -347,6 +351,8 @@ class GeminiTTSApp {
                     }
                 }
             }
+
+            console.log('Audio processing result:', { audioFound, dataLength: accumulatedAudioDataB64.length, audioMimeType });
 
             if (audioFound && accumulatedAudioDataB64) {
                 // Converte para WAV
@@ -384,7 +390,7 @@ class GeminiTTSApp {
             if (error.message.includes('API key not valid')) {
                 errorMsg = 'Chave da API inválida';
             } else if (error.message.includes('This model only supports text output')) {
-                errorMsg = 'Modelo incorreto - verifique se está usando gemini-2.5-flash-preview-tts';
+                errorMsg = 'ERRO: Ainda usando modelo errado! Verifique se está usando gemini-2.5-flash-preview-tts';
             } else if (error.message.includes('403')) {
                 errorMsg = 'Acesso negado - verifique sua chave API';
             } else if (error.message.includes('429')) {
@@ -635,7 +641,7 @@ class GeminiTTSApp {
     getDeleteIcon() {
         return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3,6 5,6 21,6"/>
-            <path d="M19,6V20a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6M8,6V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2-2V6"/>
+            <path d="M19,6V20a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6M8,6V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"/>
         </svg>`;
     }
 }
