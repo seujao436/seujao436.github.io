@@ -16,12 +16,21 @@
                         <path d="M15 18l-6-6 6-6"/>
                     </svg>
                 </button>
-                <!-- No arquivo index.html, na div .sidebar-actions -->
-                <div class="sidebar-actions">
-                    <span class="audio-count" id="audioCount">0 áudios</span>
-                        <button class="clear-history-btn" id="clearHistory">Limpar Áudios</button>
-                                <!-- ✅ NOVO BOTÃO -->
-                        <button class="clear-history-btn" onclick="app.clearConversation()" style="color: #dc3545;">Limpar Conversa</button>
+                <div class="sidebar-header-content">
+                    <h2 class="sidebar-title">Histórico de Áudio</h2>
+                    <div class="sidebar-actions">
+                        <span class="audio-count" id="audioCount">0 áudios</span>
+                        <div class="action-buttons">
+                            <button class="clear-history-btn" id="clearHistory">Limpar Áudios</button>
+                            <!-- ✅ NOVO BOTÃO PARA LIMPAR CONVERSA -->
+                            <button class="clear-history-btn clear-conversation-btn" onclick="app.clearConversation()">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="3,6 5,6 21,6"/>
+                                    <path d="M19,6V20a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6M8,6V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"/>
+                                </svg>
+                                Limpar Chat
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -79,6 +88,9 @@
                            placeholder="Cole sua chave da API Gemini aqui"
                            class="api-key-input">
                     <button id="saveApiKey" class="save-key-btn">Salvar Chave</button>
+                    <div class="api-key-help">
+                        <p><small>💡 Dica: Pressione <kbd>Enter</kbd> para salvar rapidamente</small></p>
+                    </div>
                 </div>
             </div>
 
@@ -88,6 +100,16 @@
                     <div class="welcome-content">
                         <h2>Bem-vindo ao Gemini TTS Pro! 🎵</h2>
                         <p>Digite qualquer texto abaixo e eu transformarei em áudio usando inteligência artificial.</p>
+                        <div class="welcome-tips">
+                            <div class="tip">
+                                <span class="tip-icon">⌨️</span>
+                                <span><kbd>Enter</kbd> para enviar, <kbd>Shift+Enter</kbd> para nova linha</span>
+                            </div>
+                            <div class="tip">
+                                <span class="tip-icon">🎵</span>
+                                <span>Clique em "Gerar Áudio" nas respostas para ouvir</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -100,17 +122,22 @@
             <!-- Chat Input -->
             <div class="chat-input-area">
                 <form class="chat-form" id="chatForm">
-                    <textarea 
-                        id="textInput" 
-                        class="chat-textarea custom-scrollbar"
-                        placeholder="Digite o texto que você quer converter em áudio..."
-                        rows="1"></textarea>
-                    <button type="submit" class="send-btn" id="sendBtn">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="22" y1="2" x2="11" y2="13"/>
-                            <polygon points="22,2 15,22 11,13 2,9 22,2"/>
-                        </svg>
-                    </button>
+                    <div class="input-wrapper">
+                        <textarea 
+                            id="textInput" 
+                            class="chat-textarea custom-scrollbar"
+                            placeholder="Digite o texto que você quer converter em áudio... (Enter para enviar, Shift+Enter para quebra de linha)"
+                            rows="1"></textarea>
+                        <button type="submit" class="send-btn" id="sendBtn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="22" y1="2" x2="11" y2="13"/>
+                                <polygon points="22,2 15,22 11,13 2,9 22,2"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="input-hint">
+                        <small>💡 <kbd>Enter</kbd> envia • <kbd>Shift+Enter</kbd> quebra linha</small>
+                    </div>
                 </form>
             </div>
         </div>
