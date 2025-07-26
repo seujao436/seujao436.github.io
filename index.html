@@ -16,11 +16,12 @@
                         <path d="M15 18l-6-6 6-6"/>
                     </svg>
                 </button>
-                <div class="sidebar-header-content">
-                    <h2 class="sidebar-title">Histórico de Áudio</h2>
-                    <div class="sidebar-actions">
-                        <span class="audio-count" id="audioCount">0 áudios</span>
-                        <button class="clear-history-btn" id="clearHistory">Limpar</button>
+                <!-- No arquivo index.html, na div .sidebar-actions -->
+                <div class="sidebar-actions">
+                    <span class="audio-count" id="audioCount">0 áudios</span>
+                        <button class="clear-history-btn" id="clearHistory">Limpar Áudios</button>
+                                <!-- ✅ NOVO BOTÃO -->
+                        <button class="clear-history-btn" onclick="app.clearConversation()" style="color: #dc3545;">Limpar Conversa</button>
                     </div>
                 </div>
             </div>
