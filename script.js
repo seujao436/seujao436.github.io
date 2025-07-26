@@ -236,7 +236,7 @@ class GeminiTTSApp {
         this.showStatus('Gerando resposta... 🤖', 'loading');
 
         try {
-            const response = await fetch('https://api.genai.gd.edu.kg/google/v1beta/models/gemini-2.5-flash:generateContent', {
+            const response = await fetch('https://api.genai.gd.edu.kg/google/v1beta/models/gemini-2.5-flash-lite:generateContent', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
