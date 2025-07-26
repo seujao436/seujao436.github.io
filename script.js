@@ -84,6 +84,23 @@ class GeminiTTSApp {
         
         // Chat form
         this.chatForm.addEventListener('submit', (e) => this.handleSendMessage(e));
+        
+        // ✅ CORREÇÃO: Enter para enviar, Shift+Enter para quebra de linha
+        this.textInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                if (e.shiftKey) {
+                    // Shift+Enter = quebra de linha (comportamento padrão)
+                    return;
+                } else {
+                    // Enter = enviar mensagem
+                    e.preventDefault();
+                    if (!this.isGenerating && this.textInput.value.trim()) {
+                        this.handleSendMessage(e);
+                    }
+                }
+            }
+        });
+        
         this.textInput.addEventListener('input', () => this.autoResizeTextarea());
         
         // Voice selection
@@ -180,6 +197,8 @@ class GeminiTTSApp {
         const messageId = Date.now();
         const messageEl = document.createElement('div');
         messageEl.className = `message-wrapper is-${sender}`;
+        messageEl.dataset.messageId = messageId; // ✅ Adiciona ID para referência
+        
         messageEl.innerHTML = `
             <div class="message-avatar">
                 ${sender === 'user' ? this.getUserIcon() : this.getBotIcon()}
@@ -191,7 +210,7 @@ class GeminiTTSApp {
                 <div class="message-footer">
                     <span class="message-time">${this.formatTime(new Date())}</span>
                     ${sender === 'ai' ? `
-                        <button class="message-audio-btn" onclick="app.generateAndPlayAudio('${text.replace(/'/g, "\\'")}', ${messageId})">
+                        <button class="message-audio-btn" data-message-id="${messageId}" onclick="app.generateAndPlayAudio('${text.replace(/'/g, "\\'")}', ${messageId})">
                             ${this.getPlayIcon()}
                             Gerar Áudio
                         </button>
@@ -278,9 +297,9 @@ class GeminiTTSApp {
         }
     }
 
-    // ✅ FUNÇÃO 2: Converter texto em áudio (CORRIGIDO - USA O MODELO CERTO!)
+    // ✅ FUNÇÃO 2: Converter texto em áudio (usa gemini-2.5-flash-preview-tts)
     async generateAndPlayAudio(text, messageId) {
-        const buttonEl = document.querySelector(`[onclick="app.generateAndPlayAudio('${text.replace(/'/g, "\\'")}', ${messageId})"]`);
+        const buttonEl = document.querySelector(`[data-message-id="${messageId}"]`);
         if (buttonEl) {
             buttonEl.disabled = true;
             buttonEl.innerHTML = `${this.getSpinnerIcon()} Gerando...`;
@@ -289,7 +308,6 @@ class GeminiTTSApp {
         this.showStatus('Convertendo texto em áudio... 🎵', 'loading');
 
         try {
-            // ✅ CORREÇÃO CRÍTICA: Modelo correto para TTS
             const response = await fetch('https://api.genai.gd.edu.kg/google/v1beta/models/gemini-2.5-flash-preview-tts:generateContent', {
                 method: 'POST',
                 headers: {
@@ -302,7 +320,7 @@ class GeminiTTSApp {
                         parts: [{ text: text }]
                     }],
                     generationConfig: {
-                        responseModalities: ['AUDIO'], // ✅ Essencial para áudio
+                        responseModalities: ['AUDIO'],
                         speechConfig: {
                             voiceConfig: {
                                 prebuiltVoiceConfig: {
@@ -316,12 +334,10 @@ class GeminiTTSApp {
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('Response error:', errorText);
                 throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
 
             const jsonResponse = await response.json();
-            console.log('TTS Response:', JSON.stringify(jsonResponse, null, 2));
             
             if (!jsonResponse.candidates || jsonResponse.candidates.length === 0) {
                 throw new Error('API retornou resposta sem candidates');
@@ -336,9 +352,7 @@ class GeminiTTSApp {
             let accumulatedAudioDataB64 = "";
             let audioMimeType = "audio/L16";
 
-            // Processa todas as parts do content
             for (const part of candidate.content.parts) {
-                console.log('Processing part:', part);
                 if (part && 'inlineData' in part && part.inlineData) {
                     audioFound = true;
                     
@@ -352,18 +366,16 @@ class GeminiTTSApp {
                 }
             }
 
-            console.log('Audio processing result:', { audioFound, dataLength: accumulatedAudioDataB64.length, audioMimeType });
-
             if (audioFound && accumulatedAudioDataB64) {
-                // Converte para WAV
                 const audioBlob = this.convertToWavBlob(accumulatedAudioDataB64, audioMimeType);
                 const audioUrl = URL.createObjectURL(audioBlob);
                 
-                // Update button to play/pause
+                // ✅ CORREÇÃO: Update button corretamente
                 if (buttonEl) {
                     buttonEl.disabled = false;
                     buttonEl.onclick = () => this.playAudio(audioUrl, messageId);
                     buttonEl.innerHTML = `${this.getPlayIcon()} Ouvir`;
+                    buttonEl.dataset.audioUrl = audioUrl; // Armazena URL para referência
                 }
                 
                 // Add to history
@@ -401,10 +413,11 @@ class GeminiTTSApp {
             
             this.showStatus('❌ Erro ao gerar áudio: ' + errorMsg, 'error');
             
-            // Reset button
+            // ✅ CORREÇÃO: Reset button corretamente
             if (buttonEl) {
                 buttonEl.disabled = false;
                 buttonEl.innerHTML = `${this.getPlayIcon()} Gerar Áudio`;
+                buttonEl.onclick = () => this.generateAndPlayAudio(text, messageId);
             }
         } finally {
             setTimeout(() => this.hideStatus(), 5000);
@@ -499,12 +512,19 @@ class GeminiTTSApp {
         // Update message audio buttons
         const messageButtons = this.chatLog.querySelectorAll('.message-audio-btn');
         messageButtons.forEach(btn => {
-            if (btn.onclick && btn.onclick.toString().includes('playAudio')) {
-                const isPlaying = this.currentlyPlaying && btn.onclick.toString().includes(this.currentlyPlaying);
+            const messageId = parseInt(btn.dataset.messageId);
+            const isPlaying = this.currentlyPlaying === messageId;
+            
+            if (btn.dataset.audioUrl) {
+                // Tem áudio - botão ouvir/pausar
                 btn.innerHTML = isPlaying ? 
                     `${this.getPauseIcon()} Pausar` : 
                     `${this.getPlayIcon()} Ouvir`;
                 btn.className = `message-audio-btn ${isPlaying ? 'playing' : ''}`;
+            } else {
+                // Não tem áudio - botão gerar
+                btn.innerHTML = `${this.getPlayIcon()} Gerar Áudio`;
+                btn.className = 'message-audio-btn';
             }
         });
 
@@ -558,24 +578,79 @@ class GeminiTTSApp {
         this.updatePlayButtons();
     }
 
+    // ✅ CORREÇÃO: Limpar item do histórico e atualizar botões
     deleteHistoryItem(id) {
         const item = this.audioHistory.find(item => item.id === id);
         if (item) {
             URL.revokeObjectURL(item.audioUrl);
+            
+            // ✅ Reset botão da mensagem correspondente
+            const messageBtn = document.querySelector(`[data-message-id="${id}"]`);
+            if (messageBtn) {
+                messageBtn.innerHTML = `${this.getPlayIcon()} Gerar Áudio`;
+                messageBtn.onclick = () => this.generateAndPlayAudio(messageBtn.closest('.message-wrapper').querySelector('.message-bubble').textContent, id);
+                delete messageBtn.dataset.audioUrl;
+            }
+            
             this.audioHistory = this.audioHistory.filter(item => item.id !== id);
             this.updateHistoryDisplay();
             this.saveHistoryToStorage();
         }
     }
 
+    // ✅ CORREÇÃO: Limpar histórico de áudios e resetar botões
     clearAudioHistory() {
         if (this.audioHistory.length === 0) return;
         
-        if (confirm('Tem certeza que deseja limpar todo o histórico?')) {
+        if (confirm('Tem certeza que deseja limpar todo o histórico de áudios?')) {
+            // Revoke URLs
+            this.audioHistory.forEach(item => URL.revokeObjectURL(item.audioUrl));
+            
+            // ✅ Reset todos os botões de áudio
+            const messageButtons = this.chatLog.querySelectorAll('.message-audio-btn');
+            messageButtons.forEach(btn => {
+                if (btn.dataset.audioUrl) {
+                    const messageId = parseInt(btn.dataset.messageId);
+                    const messageText = btn.closest('.message-wrapper').querySelector('.message-bubble').textContent;
+                    btn.innerHTML = `${this.getPlayIcon()} Gerar Áudio`;
+                    btn.onclick = () => this.generateAndPlayAudio(messageText, messageId);
+                    delete btn.dataset.audioUrl;
+                }
+            });
+            
+            this.audioHistory = [];
+            this.updateHistoryDisplay();
+            this.saveHistoryToStorage();
+        }
+    }
+
+    // ✅ NOVA FUNÇÃO: Limpar conversa completa
+    clearConversation() {
+        if (confirm('Tem certeza que deseja limpar toda a conversa?')) {
+            // Para áudio atual se estiver tocando
+            if (this.currentAudio) {
+                this.currentAudio.pause();
+                this.currentlyPlaying = null;
+            }
+            
+            // Limpa chat log
+            this.chatLog.innerHTML = `
+                <div class="welcome-message">
+                    <div class="welcome-content">
+                        <h2>Bem-vindo ao Gemini TTS Pro! 🎵</h2>
+                        <p>Digite qualquer texto abaixo e eu transformarei em áudio usando inteligência artificial.</p>
+                    </div>
+                </div>
+            `;
+            
+            // Limpa histórico de áudios também
             this.audioHistory.forEach(item => URL.revokeObjectURL(item.audioUrl));
             this.audioHistory = [];
             this.updateHistoryDisplay();
             this.saveHistoryToStorage();
+            
+            this.showStatus('✅ Conversa limpa com sucesso!', 'success');
+            setTimeout(() => this.hideStatus(), 2000);
         }
     }
 
@@ -641,7 +716,7 @@ class GeminiTTSApp {
     getDeleteIcon() {
         return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3,6 5,6 21,6"/>
-            <path d="M19,6V20a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6M8,6V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"/>
+            <path d="M19,6V20a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6M8,6V4a2,2,0,0,1,2,2h4a2,2,0,0,1,2,2V6"/>
         </svg>`;
     }
 }
