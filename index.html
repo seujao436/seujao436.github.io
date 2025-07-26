@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini TTS Pro - Interface Moderna</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <button class="sidebar-toggle-btn" id="sidebarToggle">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M15 18l-6-6 6-6"/>
+                    </svg>
+                </button>
+                <div class="sidebar-header-content">
+                    <h2 class="sidebar-title">Histórico de Áudio</h2>
+                    <div class="sidebar-actions">
+                        <span class="audio-count" id="audioCount">0 áudios</span>
+                        <button class="clear-history-btn" id="clearHistory">Limpar</button>
+                    </div>
+                </div>
+            </div>
+            <div class="sidebar-content">
+                <div class="history-placeholder" id="historyPlaceholder">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M9 12l2 2 4-4"/>
+                        <circle cx="12" cy="12" r="9"/>
+                    </svg>
+                    <p>Nenhum áudio gerado ainda</p>
+                    <p class="text-sm">Seus áudios aparecerão aqui</p>
+                </div>
+                <div class="history-list" id="historyList"></div>
+            </div>
+        </div>
+
+        <!-- Chat Container -->
+        <div class="chat-container">
+            <div class="floating-sidebar-toggle" id="floatingSidebar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 12h18m-9-9l9 9-9 9"/>
+                </svg>
+            </div>
+
+            <!-- Header -->
+            <div class="chat-header">
+                <button class="mobile-sidebar-toggle" id="mobileSidebar">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="3" y1="6" x2="21" y2="6"/>
+                        <line x1="3" y1="12" x2="21" y2="12"/>
+                        <line x1="3" y1="18" x2="21" y2="18"/>
+                    </svg>
+                </button>
+                <div class="chat-header-info">
+                    <h1>🎤 Gemini TTS Pro</h1>
+                    <p>Converta texto em fala com IA avançada</p>
+                </div>
+                <div class="chat-header-settings">
+                    <select class="voice-select" id="voiceSelect">
+                        <option value="leda">Leda</option>
+                        <option value="kore">Kore</option>
+                        <option value="charon">Charon</option>
+                        <option value="fenrir">Fenrir</option>
+                        <option value="puck">Puck</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- API Key Input -->
+            <div class="api-key-section" id="apiKeySection">
+                <div class="api-key-container">
+                    <h3>🔑 Configure sua API Key</h3>
+                    <input type="password" 
+                           id="apiKeyInput" 
+                           placeholder="Cole sua chave da API Gemini aqui"
+                           class="api-key-input">
+                    <button id="saveApiKey" class="save-key-btn">Salvar Chave</button>
+                </div>
+            </div>
+
+            <!-- Chat Log -->
+            <div class="chat-log custom-scrollbar" id="chatLog">
+                <div class="welcome-message">
+                    <div class="welcome-content">
+                        <h2>Bem-vindo ao Gemini TTS Pro! 🎵</h2>
+                        <p>Digite qualquer texto abaixo e eu transformarei em áudio usando inteligência artificial.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status -->
+            <div class="status-container" id="statusContainer" style="display: none;">
+                <div class="status" id="status"></div>
+            </div>
+
+            <!-- Chat Input -->
+            <div class="chat-input-area">
+                <form class="chat-form" id="chatForm">
+                    <textarea 
+                        id="textInput" 
+                        class="chat-textarea custom-scrollbar"
+                        placeholder="Digite o texto que você quer converter em áudio..."
+                        rows="1"></textarea>
+                    <button type="submit" class="send-btn" id="sendBtn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="22" y1="2" x2="11" y2="13"/>
+                            <polygon points="22,2 15,22 11,13 2,9 22,2"/>
+                        </svg>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
